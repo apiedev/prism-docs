@@ -22,6 +22,7 @@ High-performance native video player for Unity with HLS/DASH streaming support.
 
 | Guide | Description |
 |-------|-------------|
+| [FFmpeg Plugin](ffmpeg/) | Setup and usage for FFmpeg streaming support |
 | [Testing Guide](testing/) | How to test streams with the native player |
 | [Plugin API](api/) | Developing decoder and resolver plugins |
 | [Architecture](architecture/) | System design and component overview |
