@@ -4,21 +4,21 @@ title: Unity Integration
 
 # Prism Unity Plugin
 
-High-performance native video player for Unity with HLS/DASH streaming and platform URL resolution.
+High-performance native video player for Unity with automatic backend selection, HLS streaming, and platform URL resolution.
 
-## Overview
+## Features
 
-The Prism Unity Plugin provides native video playback capabilities for Unity applications, supporting:
-
-- **Native Decoders** - Windows Media Foundation, AVFoundation (macOS), GStreamer (Linux)
-- **FFmpeg Plugin** - HLS, DASH, RTMP, RTSP streaming with broad codec support
-- **URL Resolution** - Resolve YouTube, Twitch, Vimeo URLs to direct streams
+- **Unified Video Player** - Single component that auto-selects the best backend for any URL
+- **Native Performance** - Uses Windows Media Engine for hardware-accelerated playback
+- **Platform URL Resolution** - Play YouTube, Twitch, Vimeo URLs directly via yt-dlp
+- **HLS Streaming** - Full support for live streams (Twitch, YouTube Live)
+- **No FFmpeg Required** - Most content plays with native Windows APIs
 
 ## Requirements
 
 - Unity 2020.3 or later
 - 64-bit builds only
-- Windows 10+ (macOS and Linux support planned)
+- Windows 10+ (macOS and Linux planned)
 
 ## Installation
 
@@ -37,212 +37,281 @@ The Prism Unity Plugin provides native video playback capabilities for Unity app
 2. Copy to your project's `Packages` folder
 3. Or import as a local package via Package Manager
 
+## Quick Start
+
+### Using PrismVideoPlayer (Recommended)
+
+The unified `PrismVideoPlayer` component automatically handles URL resolution and backend selection:
+
+```csharp
+using Prism;
+using UnityEngine;
+
+public class SimplePlayer : MonoBehaviour
+{
+    public PrismVideoPlayer player;
+    public Renderer targetRenderer;
+
+    void Start()
+    {
+        // Just set the URL - everything else is automatic!
+        player.Play("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    }
+}
+```
+
+### Inspector Setup
+
+1. Create a Quad (GameObject > 3D Object > Quad)
+2. Add Component > **Prism/Video Player**
+3. Set **Target Renderer** to the Quad
+4. Enter any URL (YouTube, Twitch, direct MP4/HLS)
+5. Enable **Play On Awake** or call `Play()` from script
+
+## Content Type Support
+
+### Automatic Backend Selection
+
+The unified player automatically selects the optimal backend based on the content type:
+
+| Content Type | Backend Used | Requirements |
+|--------------|--------------|--------------|
+| **Twitch Live Streams** | Windows Media Engine | Native (no plugins) |
+| **YouTube Live Streams** | Windows Media Engine | Native (no plugins) |
+| **YouTube VODs** | Windows Media Engine | Native (no plugins) |
+| **Direct HLS (.m3u8)** | Windows Media Engine | Native (no plugins) |
+| **Direct MP4/MOV/WMV** | Windows Media Engine | Native (no plugins) |
+| **WebM/MKV/FLV** | FFmpeg | Requires FFmpeg plugin |
+| **RTMP/RTSP Streams** | FFmpeg | Requires FFmpeg plugin |
+
+### How It Works
+
+```
+User provides URL (YouTube, Twitch, or direct)
+          │
+          ▼
+┌─────────────────────────┐
+│   URL Resolution        │  ← yt-dlp resolves platform URLs
+│   (YouTube, Twitch)     │    to direct stream URLs
+└─────────────────────────┘
+          │
+          ▼
+┌─────────────────────────┐
+│   Format Detection      │  ← Checks: HLS? MP4? WebM?
+│                         │
+└─────────────────────────┘
+          │
+          ▼
+┌─────────────────────────┐
+│   Backend Selection     │
+│                         │
+│  HLS (.m3u8)           │──▶ Windows Media Engine
+│  MP4/MOV/WMV           │──▶ Windows Media Engine
+│  WebM/MKV/FLV          │──▶ FFmpeg (if available)
+│  RTMP/RTSP             │──▶ FFmpeg (if available)
+└─────────────────────────┘
+          │
+          ▼
+┌─────────────────────────┐
+│   Playback              │
+│   (Hardware Accelerated)│
+└─────────────────────────┘
+```
+
+### Platform URL Resolution
+
+The yt-dlp resolver automatically handles platform URLs and requests native-compatible formats:
+
+| Platform | Live Streams | VODs | Format Requested |
+|----------|--------------|------|------------------|
+| **YouTube** | HLS | MP4 (H.264) | Native compatible |
+| **Twitch** | HLS | HLS | Native compatible |
+| **Vimeo** | - | MP4 | Native compatible |
+| **Dailymotion** | HLS | MP4 | Native compatible |
+| **Facebook** | HLS | MP4 | Native compatible |
+| **Twitter/X** | - | MP4 | Native compatible |
+| **Instagram** | - | MP4 | Native compatible |
+| **TikTok** | - | MP4 | Native compatible |
+
+yt-dlp supports 1000+ additional platforms.
+
+## Components
+
+### PrismVideoPlayer
+
+The recommended unified player component.
+
+**Inspector Properties:**
+- **URL** - Video URL (YouTube, Twitch, direct HLS/MP4)
+- **Quality** - Preferred stream quality (Auto, Low, Medium, High, Full)
+- **Play On Awake** - Auto-play when scene starts
+- **Loop** - Loop playback
+- **Volume** - Audio volume (0-1)
+- **Target Renderer** - Renderer to display video on
+- **Target Raw Image** - UI RawImage to display video on
+- **Target Render Texture** - RenderTexture output
+
+**Events:**
+- `OnReady` - Media is prepared and ready
+- `OnStarted` - Playback started
+- `OnPaused` - Playback paused
+- `OnStopped` - Playback stopped
+- `OnFinished` - End of media reached
+- `OnError` - Error occurred (string message)
+- `OnStreamResolved` - Platform URL resolved (StreamInfo)
+
+### VideoPlayerUI
+
+Pre-built UI controller for video playback.
+
+**Features:**
+- Play/Pause button
+- Progress bar with seeking
+- Time display (current / total, or "LIVE" for streams)
+- Volume slider
+- URL input field
+- Auto-hide controls
+
+**Setup:**
+1. Create UI Canvas with controls
+2. Add `VideoPlayerUI` component
+3. Assign `PrismVideoPlayer` reference
+4. Connect UI elements (sliders, buttons, labels)
+
+## Supported Formats
+
+### Windows Media Engine (Native)
+
+No additional plugins required.
+
+| Type | Formats |
+|------|---------|
+| **Containers** | MP4, MOV, WMV, AVI, M4V |
+| **Video Codecs** | H.264/AVC, HEVC/H.265 (with system codec) |
+| **Audio Codecs** | AAC, MP3, WMA, FLAC |
+| **Streaming** | HLS (.m3u8), HTTP/HTTPS |
+
+### FFmpeg Plugin (Optional)
+
+Required for additional formats. Download via Prism > Setup Window.
+
+| Type | Formats |
+|------|---------|
+| **Containers** | MKV, WebM, FLV, TS, OGG |
+| **Video Codecs** | VP8, VP9, AV1, Theora |
+| **Audio Codecs** | Opus, Vorbis, AC3, DTS |
+| **Streaming** | RTMP, RTSP, DASH |
+
 ## Setup
 
-### Step 1: Download FFmpeg Libraries
+### FFmpeg Libraries (Optional)
 
-The FFmpeg DLLs are not included in git due to size constraints (~200MB). Run the download script:
+For WebM, MKV, RTMP support, download FFmpeg via the Editor:
 
-**Windows (PowerShell):**
+1. Menu: **Prism > Setup Window**
+2. Click **Download FFmpeg**
+3. Wait for download (~200MB)
+
+Or run manually:
 ```powershell
 cd Packages/prism-unity-plugin
 .\Scripts\download_ffmpeg.ps1
 ```
 
-**Linux/macOS:**
-```bash
-cd Packages/prism-unity-plugin
-chmod +x Scripts/download_ffmpeg.sh
-./Scripts/download_ffmpeg.sh
-```
+### yt-dlp (Auto-Downloaded)
 
-### Step 2: Verify Plugin Files
-
-After setup, check `Plugins/Windows/x86_64/` contains:
-
-| File | Size | Description |
-|------|------|-------------|
-| `prism_native_win.dll` | ~30 KB | Windows Media Foundation player |
-| `prism_ffmpeg.dll` | ~30 KB | FFmpeg decoder plugin |
-| `prism_ytdlp.dll` | ~25 KB | yt-dlp URL resolver |
-| `avcodec-62.dll` | ~100 MB | FFmpeg codec library |
-| `avformat-62.dll` | ~22 MB | FFmpeg format library |
-| `avutil-60.dll` | ~3 MB | FFmpeg utility library |
-| `swscale-9.dll` | ~2 MB | FFmpeg scaling library |
-| `swresample-6.dll` | ~700 KB | FFmpeg resampling library |
-
-## Quick Start
-
-### Basic Video Playback
-
-```csharp
-using PrismVideo;
-using UnityEngine;
-using UnityEngine.UI;
-
-public class SimpleVideoPlayer : MonoBehaviour
-{
-    public RawImage display;
-    public string videoUrl = "https://example.com/video.mp4";
-
-    private IPrismPlayer player;
-
-    void Start()
-    {
-        // Create native player (no FFmpeg required for MP4)
-        player = PrismPlayerFactory.CreateNativePlayer();
-        player.Open(videoUrl);
-        player.Play();
-    }
-
-    void Update()
-    {
-        player?.Update(Time.deltaTime);
-
-        if (player?.VideoTexture != null)
-        {
-            display.texture = player.VideoTexture;
-        }
-    }
-
-    void OnDestroy()
-    {
-        player?.Dispose();
-    }
-}
-```
-
-### HLS/DASH Streaming
-
-For streaming protocols, use the FFmpeg player:
-
-```csharp
-using PrismVideo;
-using UnityEngine;
-
-public class HLSPlayer : MonoBehaviour
-{
-    public string hlsUrl = "https://example.com/stream.m3u8";
-
-    private PrismFFmpegPlayer player;
-
-    void Start()
-    {
-        player = gameObject.AddComponent<PrismFFmpegPlayer>();
-        player.Open(hlsUrl);
-        player.Play();
-    }
-}
-```
-
-### YouTube/Twitch Playback
-
-Resolve platform URLs to direct streams using yt-dlp:
-
-```csharp
-using PrismVideo;
-using PrismVideo.Streaming;
-using UnityEngine;
-
-public class TwitchStreamPlayer : MonoBehaviour
-{
-    public string channelName = "shroud";
-
-    private PrismFFmpegPlayer player;
-
-    async void Start()
-    {
-        player = gameObject.AddComponent<PrismFFmpegPlayer>();
-
-        // Resolve Twitch URL to HLS stream
-        var resolver = new YtdlpResolver();
-        var result = await resolver.ResolveAsync($"https://twitch.tv/{channelName}");
-
-        if (result.Success)
-        {
-            Debug.Log($"Stream URL: {result.StreamUrl}");
-            Debug.Log($"Title: {result.Title}");
-            Debug.Log($"Is Live: {result.IsLive}");
-
-            player.Open(result.StreamUrl);
-            player.Play();
-        }
-        else
-        {
-            Debug.LogError($"Failed to resolve: {result.Error}");
-        }
-    }
-}
-```
-
-### YouTube Video Playback
-
-```csharp
-using PrismVideo;
-using PrismVideo.Streaming;
-using UnityEngine;
-
-public class YouTubePlayer : MonoBehaviour
-{
-    public string videoUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-    public StreamQuality quality = StreamQuality.Quality720p;
-
-    private PrismFFmpegPlayer player;
-
-    async void Start()
-    {
-        player = gameObject.AddComponent<PrismFFmpegPlayer>();
-
-        var resolver = new YtdlpResolver();
-        var result = await resolver.ResolveAsync(videoUrl, quality);
-
-        if (result.Success)
-        {
-            player.Open(result.StreamUrl);
-            player.Play();
-        }
-    }
-}
-```
+The yt-dlp binary is automatically downloaded on first use when resolving platform URLs. No manual setup required.
 
 ## API Reference
 
+### PrismVideoPlayer
+
+```csharp
+// Properties
+string Url { get; }
+string ResolvedUrl { get; }
+PrismPlayerState State { get; }
+bool IsPlaying { get; }
+bool IsReady { get; }
+bool IsLiveStream { get; }
+double Time { get; }
+double Duration { get; }
+float NormalizedTime { get; }
+int VideoWidth { get; }
+int VideoHeight { get; }
+Texture VideoTexture { get; }
+float Volume { get; set; }
+float PlaybackSpeed { get; set; }
+bool Loop { get; set; }
+
+// Methods
+void Play();
+void Play(string url);
+void Pause();
+void Resume();
+void Stop();
+void Seek(double timeSeconds);
+void SeekNormalized(float normalizedTime);
+```
+
+### StreamQuality Enum
+
+```csharp
+public enum StreamQuality
+{
+    Auto,    // Let yt-dlp choose
+    Low,     // ~360p
+    Medium,  // ~480p
+    High,    // ~720p
+    Full,    // ~1080p
+    Ultra    // 4K if available
+}
+```
+
 ### IPrismPlayer Interface
 
-The core player interface implemented by all player types:
+The core player interface implemented by all player backends:
 
 ```csharp
 public interface IPrismPlayer : IDisposable
 {
     // Lifecycle
-    void Open(string url);
+    void SetSource(string url);
     void Play();
     void Pause();
     void Stop();
     void Seek(double positionSeconds);
-    void Update(float deltaTime);
 
     // State
     PrismPlayerState State { get; }
-    string ErrorMessage { get; }
+    bool IsPlaying { get; }
+    bool IsPrepared { get; }
+    bool IsLiveStream { get; }
 
     // Time
-    double Position { get; }
+    double Time { get; }
     double Duration { get; }
-    bool IsLive { get; }
+    float NormalizedTime { get; }
 
     // Video
-    Texture2D VideoTexture { get; }
+    Texture VideoTexture { get; }
     int VideoWidth { get; }
     int VideoHeight { get; }
 
     // Audio
     float Volume { get; set; }
-    bool IsMuted { get; set; }
 
     // Playback
-    float Speed { get; set; }
+    float PlaybackSpeed { get; set; }
     bool Loop { get; set; }
+
+    // Events
+    event Action OnPrepared;
+    event Action OnStarted;
+    event Action OnPaused;
+    event Action OnStopped;
+    event Action OnFinished;
+    event Action<string> OnError;
 }
 ```
 
@@ -257,130 +326,140 @@ public enum PrismPlayerState
     Paused,     // Playback paused
     Stopped,    // Playback stopped
     EndOfFile,  // Reached end of media
-    Error       // Error occurred, check ErrorMessage
+    Error       // Error occurred
 }
 ```
 
-### StreamQuality
+## Advanced Usage
+
+### YouTube/Twitch with Manual Resolution
+
+For more control over URL resolution:
 
 ```csharp
-public enum StreamQuality
+using Prism;
+using Prism.Streaming;
+using UnityEngine;
+
+public class ManualResolutionExample : MonoBehaviour
 {
-    Auto,          // Let yt-dlp choose best quality
-    Quality360p,
-    Quality480p,
-    Quality720p,
-    Quality1080p,
-    Quality1440p,
-    Quality4K,
-    AudioOnly
-}
-```
+    public PrismVideoPlayer player;
 
-### IStreamResolver
-
-```csharp
-public interface IStreamResolver
-{
-    bool CanResolve(string url);
-    Task<StreamResolveResult> ResolveAsync(string url, StreamQuality quality = StreamQuality.Auto);
-}
-
-public class StreamResolveResult
-{
-    public bool Success { get; }
-    public string StreamUrl { get; }
-    public string Title { get; }
-    public bool IsLive { get; }
-    public double Duration { get; }
-    public string Error { get; }
-}
-```
-
-## Player Types
-
-### PrismNativePlayer
-
-Uses the OS native media framework. Best for simple video files.
-
-**Pros:**
-- No additional dependencies
-- Hardware acceleration built-in
-- Low memory footprint
-
-**Cons:**
-- Limited format support
-- No HLS/DASH on Windows
-
-**Supported formats:** MP4, MOV, WMV, AVI, MP3, WMA
-
-### PrismFFmpegPlayer
-
-Uses the FFmpeg plugin for broad format and protocol support.
-
-**Pros:**
-- HLS, DASH, RTMP, RTSP support
-- Wide codec compatibility
-- Consistent behavior across platforms
-
-**Cons:**
-- Requires FFmpeg DLLs (~200MB)
-- Higher memory usage
-
-**Supported formats:** Everything FFmpeg supports
-
-## URL Resolution
-
-The yt-dlp resolver supports 1000+ platforms including:
-
-| Platform | Live | VOD | Notes |
-|----------|------|-----|-------|
-| YouTube | Yes | Yes | Includes Shorts, playlists |
-| Twitch | Yes | Yes | Clips, VODs, live streams |
-| Vimeo | - | Yes | May require login for some videos |
-| Dailymotion | - | Yes | |
-| Twitter/X | - | Yes | Video tweets |
-| TikTok | Yes | Yes | |
-| Instagram | - | Yes | Reels, posts |
-| Facebook | Yes | Yes | |
-
-### Resolution Options
-
-```csharp
-var resolver = new YtdlpResolver();
-
-// Default quality (best available)
-var result = await resolver.ResolveAsync("https://youtube.com/watch?v=...");
-
-// Specific quality
-var result = await resolver.ResolveAsync(url, StreamQuality.Quality720p);
-
-// Audio only
-var result = await resolver.ResolveAsync(url, StreamQuality.AudioOnly);
-```
-
-### URL Expiration
-
-Resolved URLs are temporary and expire. For long sessions, implement refresh logic:
-
-```csharp
-private async void RefreshStreamUrl()
-{
-    while (isPlaying)
+    async void Start()
     {
-        await Task.Delay(TimeSpan.FromMinutes(30));
+        var resolver = new YtdlpResolver();
 
-        var result = await resolver.ResolveAsync(originalUrl);
+        // Resolve with specific quality
+        var result = await resolver.ResolveAsync(
+            "https://twitch.tv/shroud",
+            StreamQuality.High
+        );
+
         if (result.Success)
         {
-            // Store new URL for reconnection if needed
-            currentStreamUrl = result.StreamUrl;
+            Debug.Log($"Title: {result.Title}");
+            Debug.Log($"Is Live: {result.IsLiveStream}");
+            Debug.Log($"Format: {result.Format}");
+
+            // Play the resolved URL
+            player.Play(result.DirectUrl);
+        }
+        else
+        {
+            Debug.LogError($"Resolution failed: {result.Error}");
         }
     }
 }
 ```
 
+### Handling Multiple Output Targets
+
+```csharp
+using Prism;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class MultiOutputExample : MonoBehaviour
+{
+    public PrismVideoPlayer player;
+    public Renderer worldRenderer;
+    public RawImage uiImage;
+    public RenderTexture renderTexture;
+
+    void Start()
+    {
+        // Set all output targets
+        player.SetOutputTargets(
+            renderTexture: renderTexture,
+            renderer: worldRenderer,
+            rawImage: uiImage
+        );
+
+        player.Play("https://example.com/video.mp4");
+    }
+}
+```
+
+### Event Handling
+
+```csharp
+using Prism;
+using UnityEngine;
+
+public class EventHandlingExample : MonoBehaviour
+{
+    public PrismVideoPlayer player;
+
+    void OnEnable()
+    {
+        player.OnReady.AddListener(OnPlayerReady);
+        player.OnStarted.AddListener(OnPlayerStarted);
+        player.OnFinished.AddListener(OnPlayerFinished);
+        player.OnError.AddListener(OnPlayerError);
+        player.OnStreamResolved.AddListener(OnStreamResolved);
+    }
+
+    void OnDisable()
+    {
+        player.OnReady.RemoveListener(OnPlayerReady);
+        player.OnStarted.RemoveListener(OnPlayerStarted);
+        player.OnFinished.RemoveListener(OnPlayerFinished);
+        player.OnError.RemoveListener(OnPlayerError);
+        player.OnStreamResolved.RemoveListener(OnStreamResolved);
+    }
+
+    void OnPlayerReady() => Debug.Log("Player ready");
+    void OnPlayerStarted() => Debug.Log("Playback started");
+    void OnPlayerFinished() => Debug.Log("Playback finished");
+    void OnPlayerError(string error) => Debug.LogError($"Error: {error}");
+    void OnStreamResolved(StreamInfo info) => Debug.Log($"Resolved: {info.Title}");
+}
+```
+
 ## Troubleshooting
+
+### Video plays but no audio
+
+YouTube sometimes returns video-only streams when audio isn't available in a combined format. This is a limitation when not using FFmpeg (which can merge separate streams).
+
+### "WebM format detected. Requires FFmpeg"
+
+The video is in WebM format which Windows Media Engine doesn't support. Either:
+- Use a different video with MP4 format
+- Install FFmpeg plugin via Prism > Setup Window
+
+### URL won't resolve
+
+- Check internet connectivity
+- Verify the URL works in a browser
+- Some platforms may require login or have geo-restrictions
+- yt-dlp auto-downloads on first use; check for firewall blocks
+
+### Stream buffering or stuttering
+
+- Check network bandwidth
+- Try a lower quality setting
+- Live streams require stable connections
 
 ### DllNotFoundException: prism_ffmpeg
 
@@ -388,72 +467,30 @@ private async void RefreshStreamUrl()
 
 **Solution:**
 ```powershell
+cd Packages/prism-unity-plugin
 .\Scripts\download_ffmpeg.ps1
 ```
 
-### Unable to resolve URL / yt-dlp not found
-
-**Cause:** yt-dlp binary not available.
-
-**Solution:** The yt-dlp resolver auto-downloads the binary on first use. Ensure:
-- Internet connectivity
-- Write permissions to StreamingAssets folder
-- Firewall allows the download
-
-### Video plays but no audio
-
-**Causes:**
-- Volume set to 0
-- Audio track missing
-- Unity audio settings
-
-**Solutions:**
-- Check `player.Volume`
-- Verify stream has audio: `player.HasAudio`
-- Check Unity's audio output device
-
-### Stream timeout / won't open
-
-**Causes:**
-- Network issues
-- Geo-restricted content
-- Invalid URL
-
-**Solutions:**
-- Test URL in browser/VLC
-- Check firewall/proxy
-- Try different quality setting
-- Increase timeout in player settings
+Or use the Editor menu: **Prism > Setup Window > Download FFmpeg**
 
 ### Poor performance / frame drops
 
 **Solutions:**
-- Use hardware acceleration (enabled by default)
+- Use hardware acceleration (enabled by default with Media Engine)
 - Reduce video quality
 - Check CPU/GPU usage
 - Disable other heavy operations during playback
 
 ## Platform Support
 
-| Platform | Native Player | FFmpeg Player | URL Resolver |
+| Platform | Native Player | FFmpeg Plugin | URL Resolver |
 |----------|---------------|---------------|--------------|
-| Windows x64 | Media Foundation | Full | Full |
-| macOS | AVFoundation | Full | Full |
-| Linux x64 | GStreamer | Full | Full |
-| iOS | AVFoundation | - | - |
-| Android | MediaCodec | - | - |
+| Windows x64 | Media Engine | Full | Full |
+| macOS | AVFoundation (planned) | Planned | Full |
+| Linux x64 | GStreamer (planned) | Planned | Full |
+| iOS | - | - | - |
+| Android | - | - | - |
 | WebGL | - | - | - |
-
-## Example Scenes
-
-The package includes example scenes in `Samples~/`:
-
-1. **BasicPlayer** - Simple video playback
-2. **StreamPlayer** - HLS/DASH streaming
-3. **TwitchPlayer** - Live Twitch stream with chat
-4. **YouTubePlayer** - YouTube video with quality selection
-
-Import via Package Manager > Prism Unity Plugin > Samples.
 
 ## License
 
