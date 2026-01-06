@@ -1,7 +1,7 @@
 title: Prism Video Player
 description: High-performance native video player for Unity with HLS/DASH streaming support
-baseurl: "/prism-docs"
-url: "https://apiedev.github.io"
+baseurl: ""
+url: "https://prism.apie.dev"
 
 theme: jekyll-theme-minimal
 

@@ -2,7 +2,7 @@
 
 Documentation for the Prism Video Player ecosystem.
 
-**Live site:** https://apiedev.github.io/prism-docs/
+**Live site:** https://prism.apie.dev/
 
 ## Contents
 
